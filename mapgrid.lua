@@ -1,5 +1,3 @@
-local DEFINE = require "define"
-
 local function create_map_grid()  
   local map_grid = {}
   
