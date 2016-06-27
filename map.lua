@@ -47,9 +47,19 @@ local function broadcast_screen(self, avatar, event)
 	if map_grid ~= nil then
 		return
 	end
-	self.map_grid[v.idx_x][v.idx_y].broadcast(avatar, event)
-	for _, v in ipairs(self.neighbor_map_grid[idx_x][idx_y]) do
-		self.map_grid[v.idx_x][v.idx_y].broadcast(avatar, event)
+	self.map_grid[idx_x][idx_y].broadcast(avatar, event)
+
+	local xb = math.max(idx_x - 1, 1)
+	local xe = math.min(idx_x + 1, self.xcount)
+	local yb = math.max(idx_y - 1, 1)
+	local ye = math.min(idx_y + 1, self.ycount)
+
+	for x = xb, xe do
+		for y = yb, ye do
+			if not ( x == idx_x and y == idx_y ) then
+				self.map_grid[x][y].broadcast(avatar, event)
+			end
+		end
 	end
 end
 
@@ -59,25 +69,6 @@ local function broadcast_littlemap(self, avatar, event)
 			map_grid.broadcast(avatar, event)
 		end
 	end
-end
-
-local function get_neighbor_grid(idx_x, idx_y, grid_count_x, grid_count_y)
-	local result = {}
-
-	local xb = math.max(idx_x - 1, 0)
-	local xe = math.min(idx_x + 1, grid_count_x)
-	local yb = math.max(idx_y - 1, 0)
-	local ye = math.min(idx_y + 1, grid_count_y)
-
-	for x = xb, xe do
-		for y = yb, ye do
-			if not ( x == idx_x and y == idx_y ) then
-				result[#result+1] = { idx_x = x, idx_y = y }
-			end
-		end
-	end
-
-	return result
 end
 
 local broadcast_func = {}
@@ -102,20 +93,16 @@ local function init(self, map_id, width, height)
 
 	for x = 1, self.xcount do
 		self.map_grid[x] = self.map_grid[x] or {}
-		self.neighbor_map_grid[x] = self.neighbor_map_grid[x] or {}
-
 		local xbegin = (x - 1)*MAP_GRID_WIDTH
 
 		for y = 1, self.ycount do
 			local ybegin = (y - 1)*MAP_GRID_HEIGHT
-
 			self.map_grid[x][y] = create_map_grid(
 				xbegin + 1, 
 				ybegin + 1,
-				xbegin + MAP_GRID_WIDTH, 
-				ybegin + MAP_GRID_HEIGHT
+				math.min(xbegin + MAP_GRID_WIDTH,  self.width),
+				math.min(ybegin + MAP_GRID_HEIGHT, self.height)
 			)
-			self.neighbor_map_grid[x][y] = get_neighbor_grid(x, y, self.xcount, self.ycount)
 		end
 	end
 
@@ -139,6 +126,12 @@ local function dump_map_grid(self)
 		for j = 1, self.xcount do
 			local grid = self.map_grid[j][i]
 			r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
+			--[[
+			print(string.format("assert( map.map_grid[%d][%d].left == %d )", j, i, grid.left))
+			print(string.format("assert( map.map_grid[%d][%d].top == %d )", j, i, grid.top))
+			print(string.format("assert( map.map_grid[%d][%d].right == %d )", j, i, grid.right))
+			print(string.format("assert( map.map_grid[%d][%d].bottom == %d )", j, i, grid.bottom))
+			--]]
 		end
 		print(r)
 	end
@@ -151,7 +144,6 @@ function mapmgr.create_map()
 	map.width = 0
 	map.height = 0
 	map.map_grid = {}
-	map.neighbor_map_grid = {}
 
 	-- The count of map grid
 	map.xcount = 0
