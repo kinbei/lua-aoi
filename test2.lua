@@ -22,8 +22,6 @@ local function check_aoi_list(player, ...)
 	end
 end
 
-
--- add avatar event -- {avatar_id = xx, nickname = xx}
 local function get_avatar_cmp_seq(player, t1, t2)
 	table.sort(t1, function(a, b)
 		if player[a].grid_x < player[b].grid_x then
