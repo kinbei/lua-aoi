@@ -1,14 +1,10 @@
 local create_map_grid = require "mapgrid"
 
-local mapmgr = {}
-
 local MAP_GRID_WIDTH = 100
 local MAP_GRID_HEIGHT = 100
 
---[[
 local debug = function(fmt, ...) print(string.format(fmt, ...)) end
 local dassert = assert
---]]
 
 --[[
 map_grid shoule be provide the functions below:
@@ -25,6 +21,9 @@ push_aoi()
 
 -- return the grid according to the x, y coordinates
 local function get_map_grid(self, x, y)
+	dassert(x)
+	dassert(y)
+	
 	if x >= self.width or y >= self.height then
 		return nil
 	end
@@ -37,24 +36,43 @@ local function broadcast_grid(self, x, y, avatar, event)
 	if self.map_grid[x][y] ~= nil then
 		return
 	end
-	self.map_grid[x][y].broadcast(avatar, event)
+	self.map_grid[x][y]:broadcast(avatar, event)
 end
 
 local function broadcast_screen(self, x, y, avatar, event)
-	if self.map_grid[x][y] ~= nil then
+	if self.map_grid[x][y] == nil then
 		return
 	end
-	self.map_grid[x][y].broadcast(avatar, event)
+	self.map_grid[x][y]:broadcast(avatar, event)
 
-	local xb = math.max(grid.x - 1, 1)
-	local xe = math.min(grid.x + 1, self.xcount)
-	local yb = math.max(grid.y - 1, 1)
-	local ye = math.min(grid.y + 1, self.ycount)
+	local xb = math.max(x - 1, 1)
+	local xe = math.min(x + 1, self.xcount)
+	local yb = math.max(y - 1, 1)
+	local ye = math.min(y + 1, self.ycount)
 
-	for x = xb, xe do
-		for y = yb, ye do
-			if not ( x == grid.x and y == grid.y ) then
-				self.map_grid[x][y].broadcast(avatar, event)
+	for i = xb, xe do
+		for j = yb, ye do
+			if not ( i == x and j == y ) then
+				self.map_grid[i][j]:broadcast(avatar, event)
+			end
+		end
+	end
+end
+
+local function broadcast_screen_new_player(self, avatar, x, y)
+	if self.map_grid[x][y] == nil then
+		return
+	end
+	
+	local xb = math.max(x - 1, 1)
+	local xe = math.min(x + 1, self.xcount)
+	local yb = math.max(y - 1, 1)
+	local ye = math.min(y + 1, self.ycount)
+
+	for i = xb, xe do
+		for j = yb, ye do
+			for avatar_id, a in pairs(self.map_grid[i][j].all_avatar) do
+				avatar:push_aoi(a:gen_add_avatar_event())
 			end
 		end
 	end
@@ -63,7 +81,7 @@ end
 local function broadcast_littlemap(self, avatar, event)
 	for _, v in ipairs(self.map_grid) do
 		for _, map_grid in ipairs(v) do
-			map_grid.broadcast(avatar, event)
+			map_grid:broadcast(avatar, event)
 		end
 	end
 end
@@ -105,8 +123,9 @@ end
 
 local function add_avatar(self, avatar, x, y)
 	local grid = get_map_grid(self, x, y)
-	grid:add_avatar(avatar)
+	broadcast_screen_new_player(self, avatar, grid.x, grid.y)
 	broadcast_screen(self, grid.x, grid.y, avatar, avatar:gen_add_avatar_event())
+	grid:add_avatar(avatar)
 end
 
 local function del_avatar(self, avatar)
@@ -154,7 +173,7 @@ local function mov_avatar(self, avatar, source_x, source_y, dest_x, dest_y)
 end
 
 -- For debug
-local function dump_map_grid(self)
+local function dump(self)
 	print("Dump map grid")
 	print("-----------------------------")
 	local r
@@ -162,7 +181,8 @@ local function dump_map_grid(self)
 		r = ""
 		for j = 1, self.xcount do
 			local grid = self.map_grid[j][i]
-			r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
+			-- r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
+			r = r .. string.format("[%d-%d] ", j, i)
 			--[[
 			print(string.format("assert( map.map_grid[%d][%d].left == %d )", j, i, grid.left))
 			print(string.format("assert( map.map_grid[%d][%d].top == %d )", j, i, grid.top))
@@ -175,7 +195,7 @@ local function dump_map_grid(self)
 	print("-----------------------------")
 end
 
-function mapmgr.create_map()
+local function create(map_id, width, height)
 	local map = {}
 	map.id = 0
 	map.width = 0
@@ -187,7 +207,6 @@ function mapmgr.create_map()
 	map.ycount = 0
 
 	-- Functions
-	map.init = init
 	map.broadcast = broadcast
 	map.broadcast_grid = broadcast_grid
 	map.broadcast_screen = broadcast_screen
@@ -197,7 +216,10 @@ function mapmgr.create_map()
 	map.mov_avatar = mov_avatar
 
 	-- For debug
-	map.dump_map_grid = dump_map_grid
+	map.dump = dump
+
+	-- init
+	init(map, map_id, width, height)
 	return map
 end
-return mapmgr
+return create

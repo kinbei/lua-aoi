@@ -11,17 +11,17 @@ local function broadcast(self, avatar, event)
 end
 
 local function add_avatar(self, avatar)
-	assert( self.all_avatar[avatar.get_avatar_id()] == nil )
-	self.all_avatar[avatar.get_avatar_id()] = avatar
-	if avatar.get_avatar_type == AVATAR_TYPE_PLAYER then
+	assert( self.all_avatar[avatar:get_avatar_id()] == nil )
+	self.all_avatar[avatar:get_avatar_id()] = avatar
+	if avatar:get_avatar_type() == AVATAR_TYPE_PLAYER then
 		self.player_count = self.player_count + 1
 	end
 end
 
 local function del_avatar(self, avatar)
-	assert( self.all_avatar[avatar.get_avatar_id()] )
-	self.all_avatar[avatar.get_avatar_id()] = nil
-	if avatar.get_avatar_type == AVATAR_TYPE_PLAYER then
+	assert( self.all_avatar[avatar:get_avatar_id()] )
+	self.all_avatar[avatar:get_avatar_id()] = nil
+	if avatar:get_avatar_type() == AVATAR_TYPE_PLAYER then
 		self.player_count = self.player_count - 1
 	end
 end
