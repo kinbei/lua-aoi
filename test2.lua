@@ -13,11 +13,11 @@ end
 
 local function check_aoi_list(player, ...)
 	local t = table.pack(...)
-	assert(#player.aoi_list == #t, string.format("aoilist(%d) checklist(%d)", #player.aoi_list, #t))
+	assert(#player.aoi_list == #t, string.format("[aoi count](%d) [check count](%d) when check avatar_id(%d)", #player.aoi_list, #t, player:get_avatar_id()))
 	for i = 1, #t do
 		local avatar_id = i
 		local nickname = string.format("player%s", t[i])
-		assert( player.aoi_list[i].avatar_id == t[i], string.format("avatar_id(%d) check_id(%d)", player.aoi_list[i].avatar_id, t[i]) )
+		assert( player.aoi_list[i].avatar_id == t[i], string.format("avatar_id(%d) check_id(%d) when check avatar_id(%d)", player.aoi_list[i].avatar_id, t[i], player:get_avatar_id()) )
 		assert( player.aoi_list[i].nickname == nickname )
 	end
 end
@@ -38,112 +38,159 @@ local function get_avatar_cmp_seq(player, t1, t2)
 	return table.unpack(r)
 end
 
--- test case 1 corners
-do
-	local function test_aoi(t)
-		avatar_id = 0
-		local map = create_map(1, 600, 600)
+-- t --> { {grid = {x1, x2}, check_aoi_before = {y, y, ...}, check_aoi_after = {y, y, ...}}, ... }
+-- x1 means the idx_x of grid
+-- x2 means the idx_y of grid
+-- y means the avatar_id of avatar that you want to check
+-- check_aoi_before means the id of avatars that have already exist on map
+-- check_aoi_after means the id of avatars that add to map after this avatar
+local function test_aoi(map_width, map_height, t)
+	avatar_id = 0
+	local map = create_map(1, map_width, map_height)
 
-		local player = {}
-		for _, v in ipairs(t) do
-			local grid_x = assert(v[1])
-			local grid_y = assert(v[2])
-			player[#player+1] = create_player(gen_avatar_id(), map, grid_x, grid_y)
-		end
+	local player = {}
+	for _, v in ipairs(t) do
+		local grid_x = assert(v.grid[1])
+		local grid_y = assert(v.grid[2])
+		local avatar = create_player(gen_avatar_id(), map, grid_x, grid_y)
+		player[#player+1] = avatar
 
-		map:add_avatar( player[2], player[2].x, player[2].y )
-		map:add_avatar( player[3], player[3].x, player[3].y )
-		map:add_avatar( player[4], player[4].x, player[4].y )
-		map:add_avatar( player[1], player[1].x, player[1].y )
-
-		check_aoi_list(player[1], get_avatar_cmp_seq(player, {2, 3, 4}, {}))
-		check_aoi_list(player[2], get_avatar_cmp_seq(player, {}, {3, 4, 1}))
-		check_aoi_list(player[3], get_avatar_cmp_seq(player, {}, {2, 4, 1}))
-		check_aoi_list(player[4], get_avatar_cmp_seq(player, {2, 3}, {1}))
+		map:add_avatar(avatar, avatar.x, avatar.y)
 	end
 
-	test_aoi({{1, 1}, {2, 1}, {2, 2}, {1, 2}})
-	test_aoi({{1, 6}, {2, 5}, {1, 5}, {2, 6}})
-	test_aoi({{6, 1}, {5, 2}, {5, 1}, {6, 2}})
-	test_aoi({{6, 6}, {6, 5}, {5, 5}, {5, 6}})
-end
-
--- test case 2 border
-do
-	local function test_aoi(t)
-		avatar_id = 0
-		local map = create_map(1, 600, 600)
-		
-		local player = {}
-		for _, v in ipairs(t) do
-			local grid_x = assert(v[1])
-			local grid_y = assert(v[2])
-			player[#player+1] = create_player(gen_avatar_id(), map, grid_x, grid_y)
-		end
-
-		map:add_avatar( player[2], player[2].x, player[2].y )
-		map:add_avatar( player[3], player[3].x, player[3].y )
-		map:add_avatar( player[4], player[4].x, player[4].y )
-		map:add_avatar( player[5], player[5].x, player[5].y )
-		map:add_avatar( player[6], player[6].x, player[6].y )
-		map:add_avatar( player[1], player[1].x, player[1].y )
-
-		check_aoi_list(player[1], get_avatar_cmp_seq(player, {2, 3, 4, 5, 6}, {}))
-		check_aoi_list(player[2], get_avatar_cmp_seq(player, {}, {3, 4, 1}))
-		check_aoi_list(player[3], get_avatar_cmp_seq(player, {2}, {4, 1}))
-		check_aoi_list(player[4], get_avatar_cmp_seq(player, {2, 3}, {5, 6, 1}))
-		check_aoi_list(player[5], get_avatar_cmp_seq(player, {4}, {6, 1}))
-		check_aoi_list(player[6], get_avatar_cmp_seq(player, {4, 5}, {1}))
+	for idx, v in ipairs(t) do
+		check_aoi_list(player[idx], get_avatar_cmp_seq(player, v.check_aoi_before, v.check_aoi_after))
 	end
-
-	test_aoi({{1, 3}, {1, 2}, {2, 2}, {2, 3}, {2, 4}, {1, 4}})
-	test_aoi({{4, 1}, {5, 1}, {5, 2}, {4, 2}, {3, 1}, {3, 2}})
-	test_aoi({{6, 4}, {5, 3}, {6, 3}, {5, 4}, {5, 5}, {6, 5}})
-	test_aoi({{3, 6}, {2, 6}, {2, 5}, {3, 5}, {4, 5}, {4, 6}})
 end
 
--- test case 3 middle
-do
-	local function test_aoi(t)
-		avatar_id = 0
-		local map = create_map(1, 600, 600)
-		
-		local player = {}
-		for _, v in ipairs(t) do
-			local grid_x = assert(v[1])
-			local grid_y = assert(v[2])
-			player[#player+1] = create_player(gen_avatar_id(), map, grid_x, grid_y)
-		end
+local function test_map_add_avatar(width, height)
+	-- test case 1 corners
+	--[[
+	left top
+	[1-1(4)] [2-1(1)]
+	[1-2(3)] [2-2(2)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {2, 1}, check_aoi_before = {},        check_aoi_after = {2, 3, 4} },
+		[2] = { grid = {2, 2}, check_aoi_before = {1},       check_aoi_after = {3, 4} },
+		[3] = { grid = {1, 2}, check_aoi_before = {1, 2},    check_aoi_after = {4} },
+		[4] = { grid = {1, 1}, check_aoi_before = {1, 2, 3}, check_aoi_after = {} },
+	})
 
-		map:add_avatar( player[2], player[2].x, player[2].y )
-		map:add_avatar( player[3], player[3].x, player[3].y )
-		map:add_avatar( player[4], player[4].x, player[4].y )
-		map:add_avatar( player[5], player[5].x, player[5].y )
-		map:add_avatar( player[6], player[6].x, player[6].y )
-		map:add_avatar( player[7], player[7].x, player[7].y )
-		map:add_avatar( player[8], player[8].x, player[8].y )
-		map:add_avatar( player[9], player[9].x, player[9].y )
-		map:add_avatar( player[1], player[1].x, player[1].y )
+	--[[
+	right top
+	[5-1(2)] [6-1(4)] 
+	[5-2(1)] [6-2(3)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {5, 2}, check_aoi_before = {},        check_aoi_after = {2, 3, 4} },
+		[2] = { grid = {5, 1}, check_aoi_before = {1},       check_aoi_after = {3, 4} },
+		[3] = { grid = {6, 2}, check_aoi_before = {1, 2},    check_aoi_after = {4} },
+		[4] = { grid = {6, 1}, check_aoi_before = {1, 2, 3}, check_aoi_after = {} },
+	})
 
-		--[[
-		[2-2(2)] [3-2(3)] [4-2(4)]
-		[2-3(5)] [3-3(1)] [4-3(6)]
-		[2-4(7)] [3-4(8)] [4-4(9)]
-		--]]
-		check_aoi_list(player[1], get_avatar_cmp_seq(player, {2, 3, 4, 5, 6, 7, 8, 9}, {}))
-		check_aoi_list(player[2], get_avatar_cmp_seq(player, {}, {3, 5, 1}))
-		check_aoi_list(player[3], get_avatar_cmp_seq(player, {2}, {4, 5, 6, 1}))
-		check_aoi_list(player[4], get_avatar_cmp_seq(player, {3}, {6, 1}))
-		check_aoi_list(player[5], get_avatar_cmp_seq(player, {2, 3}, {7, 8, 1}))
-		check_aoi_list(player[6], get_avatar_cmp_seq(player, {3, 4}, {8, 9, 1}))
-		check_aoi_list(player[7], get_avatar_cmp_seq(player, {5}, {8, 1}))
-		check_aoi_list(player[8], get_avatar_cmp_seq(player, {5, 6, 7}, {9, 1}))
-		check_aoi_list(player[9], get_avatar_cmp_seq(player, {6, 8}, {1}))
-	end
+	--[[
+	left bottom
+	[1-5(1)] [2-5(2)]
+	[1-6(4)] [2-6(3)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {1, 5}, check_aoi_before = {},        check_aoi_after = {2, 3, 4} },
+		[2] = { grid = {2, 5}, check_aoi_before = {1},       check_aoi_after = {3, 4} },
+		[3] = { grid = {2, 6}, check_aoi_before = {1, 2},    check_aoi_after = {4} },
+		[4] = { grid = {1, 6}, check_aoi_before = {1, 2, 3}, check_aoi_after = {} },
+	})
 
-	test_aoi {
-		[1] = {3, 3}, [2] = {2, 2}, [3] = {3, 2}, 
-		[4] = {4, 2}, [5] = {2, 3}, [6] = {4, 3},
-		[7] = {2, 4}, [8] = {3, 4}, [9] = {4, 4}
-	}
+	--[[
+	right bottom
+	[5-5] [6-5] 
+	[5-6] [6-6]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {1, 5}, check_aoi_before = {},        check_aoi_after = {2, 3, 4} },
+		[2] = { grid = {2, 5}, check_aoi_before = {1},       check_aoi_after = {3, 4} },
+		[3] = { grid = {2, 6}, check_aoi_before = {1, 2},    check_aoi_after = {4} },
+		[4] = { grid = {1, 6}, check_aoi_before = {1, 2, 3}, check_aoi_after = {} },
+	})
+
+	-- test case 2 border
+
+	--[[
+	left
+	[1-2(5)] [2-2(4)]
+	[1-3(6)] [2-3(3)]
+	[1-4(1)] [2-4(2)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {1, 4}, check_aoi_before = {},              check_aoi_after = {2, 3, 6} },
+		[2] = { grid = {2, 4}, check_aoi_before = {1},             check_aoi_after = {3, 6} },
+		[3] = { grid = {2, 3}, check_aoi_before = {1, 2},          check_aoi_after = {4, 5, 6} },
+		[4] = { grid = {2, 2}, check_aoi_before = {3},             check_aoi_after = {5, 6} },
+		[5] = { grid = {1, 2}, check_aoi_before = {3, 4},          check_aoi_after = {6} },
+		[6] = { grid = {1, 3}, check_aoi_before = {1, 2, 3, 4, 5}, check_aoi_after = {} },
+	})
+
+	-- top
+	--[[
+	[3-1(4)] [4-1(6)] [5-1(1)]
+	[3-2(5)] [4-2(3)] [5-2(2)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {5, 1}, check_aoi_before = {},              check_aoi_after = {2, 3, 6} },
+		[2] = { grid = {5, 2}, check_aoi_before = {1},             check_aoi_after = {3, 6} },
+		[3] = { grid = {4, 2}, check_aoi_before = {1, 2},          check_aoi_after = {4, 5, 6} },
+		[4] = { grid = {3, 1}, check_aoi_before = {3},             check_aoi_after = {5, 6} },
+		[5] = { grid = {3, 2}, check_aoi_before = {3, 4},          check_aoi_after = {6} },
+		[6] = { grid = {4, 1}, check_aoi_before = {1, 2, 3, 4, 5}, check_aoi_after = {} },
+	})
+
+	-- right
+	--[[
+	[5-3(1)] [6-3(2)] 
+	[5-4(3)] [6-4(6)] 
+	[5-5(4)] [6-5(5)] 
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {5, 3}, check_aoi_before = {},              check_aoi_after = {2, 3, 6} },
+		[2] = { grid = {6, 3}, check_aoi_before = {1},             check_aoi_after = {3, 6} },
+		[3] = { grid = {5, 4}, check_aoi_before = {1, 2},          check_aoi_after = {4, 5, 6} },
+		[4] = { grid = {5, 5}, check_aoi_before = {3},             check_aoi_after = {5, 6} },
+		[5] = { grid = {6, 5}, check_aoi_before = {3, 4},          check_aoi_after = {6} },
+		[6] = { grid = {6, 4}, check_aoi_before = {1, 2, 3, 4, 5}, check_aoi_after = {} },
+	})
+
+	-- bottom
+	--[[
+	[2-5(1)] [3-5(2)] [4-5(3)] 
+	[2-6(4)] [3-6(6)] [4-6(5)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {2, 5}, check_aoi_before = {},              check_aoi_after = {2, 4, 6} },
+		[2] = { grid = {3, 5}, check_aoi_before = {1},             check_aoi_after = {3, 4, 5, 6} },
+		[3] = { grid = {4, 5}, check_aoi_before = {2},             check_aoi_after = {5, 6} },
+		[4] = { grid = {2, 6}, check_aoi_before = {1, 2},          check_aoi_after = {6} },
+		[5] = { grid = {4, 6}, check_aoi_before = {2, 3},          check_aoi_after = {6} },
+		[6] = { grid = {3, 6}, check_aoi_before = {1, 2, 3, 4, 5}, check_aoi_after = {} },
+	})
+
+	-- test case 3 middle
+	--[[
+	[2-2(2)] [3-2(3)] [4-2(4)]
+	[2-3(5)] [3-3(9)] [4-3(6)]
+	[2-4(7)] [3-4(8)] [4-4(1)]
+	--]]
+	test_aoi(width, height, {
+		[1] = { grid = {4, 4}, check_aoi_before = {},                       check_aoi_after = {6, 8, 9} },
+		[2] = { grid = {2, 2}, check_aoi_before = {},                       check_aoi_after = {3, 5, 9} },
+		[3] = { grid = {3, 2}, check_aoi_before = {2},                      check_aoi_after = {4, 5, 6, 9} },
+		[4] = { grid = {4, 2}, check_aoi_before = {3},                      check_aoi_after = {6, 9} },
+		[5] = { grid = {2, 3}, check_aoi_before = {2, 3},                   check_aoi_after = {7, 8, 9} },
+		[6] = { grid = {4, 3}, check_aoi_before = {1, 3, 4},                check_aoi_after = {8, 9} },
+		[7] = { grid = {2, 4}, check_aoi_before = {5},                      check_aoi_after = {8, 9} },
+		[8] = { grid = {3, 4}, check_aoi_before = {1, 5, 6, 7},             check_aoi_after = {9} },
+		[9] = { grid = {3, 3}, check_aoi_before = {1, 2, 3, 4, 5, 6, 7, 8}, check_aoi_after = {} },
+	})
 end
+
+test_map_add_avatar(600, 600)
+test_map_add_avatar(501, 501)
