@@ -20,11 +20,8 @@ push_aoi()
 --]]
 
 -- return the grid according to the x, y coordinates
-local function get_map_grid(self, x, y)
-	dassert(x)
-	dassert(y)
-	
-	if x >= self.width or y >= self.height then
+local function get_map_grid(self, x, y)	
+	if x > self.width or y > self.height then
 		return nil
 	end
 	local idx_x = math.ceil(x/MAP_GRID_WIDTH)
@@ -122,7 +119,7 @@ local function init(self, map_id, width, height)
 end
 
 local function add_avatar(self, avatar, x, y)
-	local grid = get_map_grid(self, x, y)
+	local grid = assert( get_map_grid(self, x, y) )
 	broadcast_screen_new_player(self, avatar, grid.x, grid.y)
 	broadcast_screen(self, grid.x, grid.y, avatar, avatar:gen_add_avatar_event())
 	grid:add_avatar(avatar)
@@ -181,8 +178,8 @@ local function dump(self)
 		r = ""
 		for j = 1, self.xcount do
 			local grid = self.map_grid[j][i]
-			-- r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
-			r = r .. string.format("[%d-%d] ", j, i)
+			r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
+			-- r = r .. string.format("[%d-%d] ", j, i)
 			--[[
 			print(string.format("assert( map.map_grid[%d][%d].left == %d )", j, i, grid.left))
 			print(string.format("assert( map.map_grid[%d][%d].top == %d )", j, i, grid.top))
