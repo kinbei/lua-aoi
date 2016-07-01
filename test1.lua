@@ -1,9 +1,8 @@
-local mapmgr = require "map"
+local create_map = require "map"
 
 local map
 
-map = mapmgr.create_map()
-map:init(1, 600, 600)
+map = create_map(1, 600, 600)
 assert( map.id == 1 )
 assert( map.map_grid[1][1].left == 1 )
 assert( map.map_grid[1][1].top == 1 )
@@ -150,8 +149,7 @@ assert( map.map_grid[6][6].top == 501 )
 assert( map.map_grid[6][6].right == 600 )
 assert( map.map_grid[6][6].bottom == 600 )
 
-map = mapmgr.create_map()
-map:init(2, 599, 599)
+map = create_map(2, 599, 599)
 assert( map.id == 2 )
 assert( map.map_grid[1][1].left == 1 )
 assert( map.map_grid[1][1].top == 1 )
@@ -298,6 +296,5 @@ assert( map.map_grid[6][6].top == 501 )
 assert( map.map_grid[6][6].right == 599 )
 assert( map.map_grid[6][6].bottom == 599 )
 
-map = mapmgr.create_map()
-map:init(2, 60000, 60000)
+map = create_map(2, 60000, 60000)
 assert( map.id == 2 )

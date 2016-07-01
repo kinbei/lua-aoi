@@ -125,10 +125,10 @@ local function add_avatar(self, avatar, x, y)
 	grid:add_avatar(avatar)
 end
 
-local function del_avatar(self, avatar)
-	local grid = self.get_map_grid(x, y)
-	grid.del_avatar(avatar)
-	broadcast_screen(self, grid.x, grid.y, avatar, avatar.gen_del_avatar_event())
+local function del_avatar(self, avatar, x, y)
+	local grid = assert( get_map_grid(self, x, y) )
+	grid:del_avatar(avatar)
+	broadcast_screen(self, grid.x, grid.y, avatar, avatar:gen_del_avatar_event())
 end
 
 local function isinrange(x, y, left, top, right, bottom)

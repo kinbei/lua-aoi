@@ -6,7 +6,8 @@ end
 
 local function gen_del_avatar_event(self)
 	return {
-		avatar_id = self.avatar_id
+		avatar_id = self.avatar_id,
+		nickname = self.nickname
 	}
 end
 
