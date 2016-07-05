@@ -19,6 +19,7 @@ local function add_avatar(self, avatar)
 end
 
 local function del_avatar(self, avatar)
+	assert(avatar)
 	assert( self.all_avatar[avatar:get_avatar_id()] )
 	self.all_avatar[avatar:get_avatar_id()] = nil
 	if avatar:get_avatar_type() == AVATAR_TYPE_PLAYER then

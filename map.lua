@@ -21,6 +21,8 @@ push_aoi()
 
 -- return the grid according to the x, y coordinates
 local function get_map_grid(self, x, y)	
+	assert(x)
+	assert(y)
 	if x > self.width or y > self.height then
 		return nil
 	end
@@ -30,6 +32,8 @@ local function get_map_grid(self, x, y)
 end
 
 local function broadcast_grid(self, x, y, avatar, event)
+	assert(self.map_grid[x])
+	assert(self.map_grid[x][y])
 	if self.map_grid[x][y] ~= nil then
 		return
 	end
@@ -144,26 +148,26 @@ local function get_rect(x, y, xcount, ycount, distance)
 end
 
 local function mov_avatar(self, avatar, source_x, source_y, dest_x, dest_y)
-	local source_grid = self.get_map_grid(source_x, source_y)
-	local dest_grid = self.get_map_grid(dest_x, dest_y)
+	local source_grid = assert( get_map_grid(self, source_x, source_y) )
+	local dest_grid = assert( get_map_grid(self, dest_x, dest_y) )
 
 	-- The source grid and dest grid must be adjacent to each other
 	assert( (math.abs(source_grid.x - dest_grid.x) == 1) or (math.abs(source_grid.y - dest_grid.y) == 1) )
 	
 	if source_grid ~= dest_grid then
-		source_grid.del_avatar(avatar)
-		dest_grid.del_avatar(avatar)
+		source_grid:del_avatar(avatar)
+		dest_grid:add_avatar(avatar)
 	end
 
-	for x = source_grid.x - 2, source_grid.x + 2 do
-		for y = source_grid.y - 2, source_grid.y + 2 do
+	for x = math.max(source_grid.x - 2, 1), math.min(source_grid.x + 2, self.xcount) do
+		for y = math.max(source_grid.y - 2, 1), math.min(source_grid.y + 2, self.ycount) do
 			if isinrange(x, y, get_rect(source_grid.x, source_grid.y, self.width, self.height, 2)) and 
 			   isinrange(x, y, get_rect(dest_grid.x, dest_grid.y, self.width, self.height, 2)) then
-				broadcast_grid(self, x, y, avatar, avatar.gen_mov_event())
+				broadcast_grid(self, x, y, avatar, avatar:gen_mov_avatar_event())
 			elseif isinrange(get_rect(source_grid.x, source_grid.y, self.width, self.height, 2)) then
-				broadcast_grid(self, x, y, avatar, avatar.gen_del_event())
+				broadcast_grid(self, x, y, avatar, avatar:gen_del_avatar_event())
 			elseif isinrange(get_rect(dest_grid.x, dest_grid.y, self.width, self.height, 2)) then
-				broadcast_grid(self, x, y, avatar, avatar.gen_add_event())
+				broadcast_grid(self, x, y, avatar, avatar:gen_add_avatar_event())
 			end
 		end
 	end
