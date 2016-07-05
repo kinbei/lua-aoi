@@ -32,7 +32,6 @@ local function get_map_grid(self, x, y)
 end
 
 local function broadcast_grid(self, x, y, avatar, event)
-	debug("broadcast_grid(%d-%d) event.avatar_id(%d) event.event_type(%d)", x, y, event.avatar_id, event.event_type)
 	assert(self.map_grid[x] and self.map_grid[x][y])
 	if self.map_grid[x][y] == nil then
 		return

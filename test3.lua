@@ -80,7 +80,6 @@ end
 local function test_aoi(map_width, map_height, t)
 	avatar_id = 0
 	local map = create_map(1, map_width, map_height)
-	map:dump()
 
 	-- check add avatar
 	local player = {}
