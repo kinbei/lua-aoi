@@ -1,5 +1,9 @@
 local AVATAR_TYPE_PLAYER = 1
 
+local AVATAR_EVENT_ADD = 1
+local AVATAR_EVENT_DEL = 2
+local AVATAR_EVENT_MOV = 3
+
 local function get_avatar_id(self)
 	return self.avatar_id
 end
@@ -7,20 +11,24 @@ end
 local function gen_del_avatar_event(self)
 	return {
 		avatar_id = self.avatar_id,
-		nickname = self.nickname
+		nickname = self.nickname,
+		event_type = AVATAR_EVENT_DEL,
 	}
 end
 
 local function gen_add_avatar_event(self)
 	return {
 		avatar_id = self.avatar_id,
-		nickname = self.nickname
+		nickname = self.nickname,
+		event_type = AVATAR_EVENT_ADD,
 	}
 end
 
 local function gen_mov_avatar_event(self)
 	return {
 		avatar_id = self.avatar_id,
+		nickname = self.nickname,
+		event_type = AVATAR_EVENT_MOV,
 	}
 end
 

@@ -11,14 +11,35 @@ local function gen_avatar_id()
 	return avatar_id
 end
 
-local function check_aoi_list(player, ...)
-	local t = table.pack(...)
-	assert(#player.aoi_list == #t, string.format("[aoi count](%d) [check count](%d) when check avatar_id(%d)", #player.aoi_list, #t, player:get_avatar_id()))
-	for i = 1, #t do
-		local avatar_id = i
-		local nickname = string.format("player%s", t[i])
-		assert( player.aoi_list[i].avatar_id == t[i], string.format("avatar_id(%d) check_id(%d) when check avatar_id(%d)", player.aoi_list[i].avatar_id, t[i], player:get_avatar_id()) )
-		assert( player.aoi_list[i].nickname == nickname, string.format("nickname(%s) check_nickname(%s) when check avatar_id(%d)", player.aoi_list[i].nickname, nickname, player:get_avatar_id()) )
+local function check_add_avatar(player, avatar_id, aoi_event)
+	local avatar = assert(player[avatar_id])
+	assert(avatar.avatar_id)
+	assert(avatar.nickname)
+
+	assert( aoi_event.avatar_id == avatar:get_avatar_id(), 
+		string.format("avatar_id(%d) check_id(%d) when check avatar_id(%d)", aoi_event.avatar_id, avatar:get_avatar_id(), avatar_id) 
+	)
+	assert( aoi_event.nickname == avatar.nickname, 
+		string.format("nickname(%s) check_nickname(%s) when check avatar_id(%d)", aoi_event.nickname, avatar.nickname, avatar_id) 
+	)
+end
+
+-- player --> { avatar_id = player, ... }
+-- avatar_id the avatar id of the player that want to check
+-- chk_aoi: the test case of check aoi
+-- chk_aoi = { {avatar_id, check_function}, ... }
+-- check_function = function(avatar, aoi_event)
+local function check_aoi_list(player, avatar_id, chk_aoi)
+	local avatar = assert(player[avatar_id])
+	assert(#avatar.aoi_list == #chk_aoi, 
+		string.format("[aoi count](%d) [check count](%d) when check avatar_id(%d)", #avatar.aoi_list, #chk_aoi, avatar_id)
+	)
+
+	for i = 1, #chk_aoi do
+		local avatar_id = assert(chk_aoi[i][1])
+		local aoi_chk_func = assert(chk_aoi[i][2])
+		local avatar = assert(player[i])
+		aoi_chk_func(player, avatar_id, avatar.aoi_list[i])
 	end
 end
 
@@ -59,6 +80,7 @@ end
 local function test_aoi(map_width, map_height, t)
 	avatar_id = 0
 	local map = create_map(1, map_width, map_height)
+	map:dump()
 
 	-- check add avatar
 	local player = {}
@@ -87,26 +109,42 @@ local function test_aoi(map_width, map_height, t)
 		end
 	end
 
-	for idx, v in ipairs(t) do
-		for _, v in ipairs(player[idx].aoi_list) do
-			debug("check_aoi_list|avatar(%d) mov(%d)", idx, v.avatar_id)
-		end
-		-- check_aoi_list(player[idx], get_avatar_cmp_seq(player, {}, v.del_aoi))
+	for avatar_id, v in ipairs(t) do
+		check_aoi_list(player, avatar_id, v.chk_aoi)
 	end
 end
 
 local function test_map_add_avatar(width, height)
+	local add_avatar = check_add_avatar
+	local mov_avatar = function() end
+	local del_avatar = function() end
+
 	-- test case 1 corners
 	--[[
 	left top
-	[1-1(4)] [2-1(1)]
-	[1-2(3)] [2-2(2)]
+	[1-1(01)] [2-1(02)] [3-1(03)] [4-1(04)]
+	[1-2(05)] [2-2(06)] [3-2(07)] [4-2(08)]
+	[1-3(09)] [2-3(10)] [3-3(11)] [4-3(12)]
+	[1-4(13)] [2-4(14)] [3-4(15)] [4-4(16)]
+	avatar(11) move to [3-3] from [2-2]
 	--]]
 	test_aoi(width, height, {
-		[1] = { grid = {2, 1}, move_to_grid = {}, chk_aoi = {} },
-		[2] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {} },
-		[3] = { grid = {1, 2}, move_to_grid = {}, chk_aoi = {} },
-		[4] = { grid = {1, 1}, move_to_grid = {2, 2}, chk_aoi = {} },
+		[1] = { grid = {1, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[2] = { grid = {2, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[3] = { grid = {3, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[4] = { grid = {4, 1}, move_to_grid = {}, chk_aoi = {} },
+		[5] = { grid = {1, 2}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[6] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
+		[7] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
+		[8] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[9] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[10] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
+		[11] = { grid = {3, 3}, move_to_grid = {2, 2}, chk_aoi = {} },
+		[12] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[13] = { grid = {1, 4}, move_to_grid = {}, chk_aoi = {} },
+		[14] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[15] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[16] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
 	})
 
 if false then

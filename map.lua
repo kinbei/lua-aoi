@@ -32,9 +32,9 @@ local function get_map_grid(self, x, y)
 end
 
 local function broadcast_grid(self, x, y, avatar, event)
-	assert(self.map_grid[x])
-	assert(self.map_grid[x][y])
-	if self.map_grid[x][y] ~= nil then
+	debug("broadcast_grid(%d-%d) event.avatar_id(%d) event.event_type(%d)", x, y, event.avatar_id, event.event_type)
+	assert(self.map_grid[x] and self.map_grid[x][y])
+	if self.map_grid[x][y] == nil then
 		return
 	end
 	self.map_grid[x][y]:broadcast(avatar, event)
@@ -161,12 +161,12 @@ local function mov_avatar(self, avatar, source_x, source_y, dest_x, dest_y)
 
 	for x = math.max(source_grid.x - 2, 1), math.min(source_grid.x + 2, self.xcount) do
 		for y = math.max(source_grid.y - 2, 1), math.min(source_grid.y + 2, self.ycount) do
-			if isinrange(x, y, get_rect(source_grid.x, source_grid.y, self.width, self.height, 2)) and 
-			   isinrange(x, y, get_rect(dest_grid.x, dest_grid.y, self.width, self.height, 2)) then
+			if isinrange(x, y, get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1)) and 
+			   isinrange(x, y, get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_mov_avatar_event())
-			elseif isinrange(get_rect(source_grid.x, source_grid.y, self.width, self.height, 2)) then
+			elseif isinrange(get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_del_avatar_event())
-			elseif isinrange(get_rect(dest_grid.x, dest_grid.y, self.width, self.height, 2)) then
+			elseif isinrange(get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_add_avatar_event())
 			end
 		end
@@ -182,8 +182,8 @@ local function dump(self)
 		r = ""
 		for j = 1, self.xcount do
 			local grid = self.map_grid[j][i]
-			r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
-			-- r = r .. string.format("[%d-%d] ", j, i)
+			-- r = r .. string.format("[%d-%d (%03d,%03d)-(%03d,%03d)] ", j, i, grid.left, grid.top, grid.right, grid.bottom)
+			r = r .. string.format("[%d-%d] ", j, i)
 			--[[
 			print(string.format("assert( map.map_grid[%d][%d].left == %d )", j, i, grid.left))
 			print(string.format("assert( map.map_grid[%d][%d].top == %d )", j, i, grid.top))
