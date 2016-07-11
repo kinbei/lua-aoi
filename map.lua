@@ -160,12 +160,14 @@ local function mov_avatar(self, avatar, source_x, source_y, dest_x, dest_y)
 
 	for x = math.max(source_grid.x - 2, 1), math.min(source_grid.x + 2, self.xcount) do
 		for y = math.max(source_grid.y - 2, 1), math.min(source_grid.y + 2, self.ycount) do
+			-- debug("grid(%d-%d) (%d,%d,%d,%d)", x, y, get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1))
+			-- debug("            (%d,%d,%d,%d)", get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1))
 			if isinrange(x, y, get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1)) and 
 			   isinrange(x, y, get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_mov_avatar_event())
-			elseif isinrange(get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1)) then
+			elseif isinrange(x, y, get_rect(source_grid.x, source_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_del_avatar_event())
-			elseif isinrange(get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1)) then
+			elseif isinrange(x, y, get_rect(dest_grid.x, dest_grid.y, self.xcount, self.ycount, 1)) then
 				broadcast_grid(self, x, y, avatar, avatar:gen_add_avatar_event())
 			end
 		end

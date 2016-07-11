@@ -11,16 +11,39 @@ local function gen_avatar_id()
 	return avatar_id
 end
 
-local function check_add_avatar(player, avatar_id, aoi_event)
-	local avatar = assert(player[avatar_id])
-	assert(avatar.avatar_id)
-	assert(avatar.nickname)
+local AVATAR_EVENT_ADD = 1
+local AVATAR_EVENT_DEL = 2
+local AVATAR_EVENT_MOV = 3
 
-	assert( aoi_event.avatar_id == avatar:get_avatar_id(), 
-		string.format("avatar_id(%d) check_id(%d) when check avatar_id(%d)", aoi_event.avatar_id, avatar:get_avatar_id(), avatar_id) 
+local function check_common(chk_player, chk_idx, aoi_event, player)
+	assert( aoi_event.avatar_id == player:get_avatar_id(), 
+		string.format("aoi_avatar_id(%d) chk_avatar_id(%d) when check avatar_id(%d) idx(%d)", 
+			aoi_event.avatar_id, player:get_avatar_id(), chk_player:get_avatar_id(), chk_idx) 
 	)
-	assert( aoi_event.nickname == avatar.nickname, 
-		string.format("nickname(%s) check_nickname(%s) when check avatar_id(%d)", aoi_event.nickname, avatar.nickname, avatar_id) 
+	assert( aoi_event.nickname == player.nickname, 
+		string.format("aoi_nickname(%s) chk_nickname(%s) when check avatar_id(%d) idx(%d)", 
+			aoi_event.nickname, player.nickname, chk_player:get_avatar_id(), chk_idx) 
+	)
+end
+
+local function check_add_avatar(chk_player, chk_idx, aoi_event, player)
+	check_common(chk_player, chk_idx, aoi_event, player)
+	assert(aoi_event.event_type == AVATAR_EVENT_ADD,
+		string.format("invalid event_type(%d) when check avatar_id(%d) idx(%d)", aoi_event.event_type, chk_player:get_avatar_id(), chk_idx)
+	)
+end
+
+local function check_del_avatar(chk_player, chk_idx, aoi_event, player)
+	check_common(chk_player, chk_idx, aoi_event, player)
+	assert(aoi_event.event_type == AVATAR_EVENT_DEL,
+		string.format("invalid event_type(%d) when check avatar_id(%d) idx(%d)", aoi_event.event_type, chk_player:get_avatar_id(), chk_idx)
+	)
+end
+
+local function check_mov_avatar(chk_player, chk_idx, aoi_event, player)
+	check_common(chk_player, chk_idx, aoi_event, player)
+	assert(aoi_event.event_type == AVATAR_EVENT_MOV, 
+		string.format("invalid event_type(%d) when check avatar_id(%d) idx(%d)", aoi_event.event_type, chk_player:get_avatar_id(), chk_idx)
 	)
 end
 
@@ -29,17 +52,16 @@ end
 -- chk_aoi: the test case of check aoi
 -- chk_aoi = { {avatar_id, check_function}, ... }
 -- check_function = function(avatar, aoi_event)
-local function check_aoi_list(player, avatar_id, chk_aoi)
-	local avatar = assert(player[avatar_id])
-	assert(#avatar.aoi_list == #chk_aoi, 
-		string.format("[aoi count](%d) [check count](%d) when check avatar_id(%d)", #avatar.aoi_list, #chk_aoi, avatar_id)
+local function check_aoi_list(tbl_player, chk_player, chk_aoi)
+	assert(#chk_player.aoi_list == #chk_aoi, 
+		string.format("[aoi count](%d) [check count](%d) when check avatar_id(%d)", #chk_player.aoi_list, #chk_aoi, chk_player:get_avatar_id())
 	)
 
 	for i = 1, #chk_aoi do
 		local avatar_id = assert(chk_aoi[i][1])
 		local aoi_chk_func = assert(chk_aoi[i][2])
-		local avatar = assert(player[i])
-		aoi_chk_func(player, avatar_id, avatar.aoi_list[i])
+		local player = assert(tbl_player[avatar_id])
+		aoi_chk_func(chk_player, i, chk_player.aoi_list[i], player)
 	end
 end
 
@@ -81,42 +103,40 @@ local function test_aoi(map_width, map_height, t)
 	avatar_id = 0
 	local map = create_map(1, map_width, map_height)
 
-	-- check add avatar
-	local player = {}
+	local tbl_player = {}
 	for _, v in ipairs(t) do
 		local grid_x = assert(v.grid[1])
 		local grid_y = assert(v.grid[2])
-		local avatar = create_player(gen_avatar_id(), map, grid_x, grid_y)
-		player[#player+1] = avatar
+		local player = create_player(gen_avatar_id(), map, grid_x, grid_y)
+		tbl_player[#tbl_player+1] = player
 
-		map:add_avatar(avatar, avatar.x, avatar.y)
+		map:add_avatar(player, player.x, player.y)
 	end
 
-	-- clear aoi
-	for _, avatar in ipairs(player) do
-		avatar:clear_aoi()
+	for _, player in ipairs(tbl_player) do
+		player:clear_aoi()
 	end
 
-	-- check move avatar
 	for idx, v in ipairs(t) do
-		local avatar = assert(player[idx])
+		local player = assert(tbl_player[idx])
 		if v.move_to_grid and v.move_to_grid[1] and v.move_to_grid[2] then
 			local move_to_grid_x = assert(v.move_to_grid[1])
 			local move_to_grid_y = assert(v.move_to_grid[2])
 			local pos_x, pos_y = gen_player_pos(map, move_to_grid_x, move_to_grid_y)
-			map:mov_avatar(avatar, avatar.x, avatar.y, pos_x, pos_y)
+			map:mov_avatar(player, player.x, player.y, pos_x, pos_y)
 		end
 	end
 
 	for avatar_id, v in ipairs(t) do
-		check_aoi_list(player, avatar_id, v.chk_aoi)
+		check_aoi_list(tbl_player, tbl_player[avatar_id], v.chk_aoi)
 	end
 end
 
 local function test_map_add_avatar(width, height)
 	local add_avatar = check_add_avatar
-	local mov_avatar = function() end
-	local del_avatar = function() end
+	local mov_avatar = check_mov_avatar
+	local del_avatar = check_del_avatar
+	local mov_avatar_id = 0
 
 	-- test case 1 corners
 	--[[
@@ -127,141 +147,252 @@ local function test_map_add_avatar(width, height)
 	[1-4(13)] [2-4(14)] [3-4(15)] [4-4(16)]
 	avatar(11) move to [3-3] from [2-2]
 	--]]
+	mov_avatar_id = 11
 	test_aoi(width, height, {
-		[1] = { grid = {1, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
-		[2] = { grid = {2, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
-		[3] = { grid = {3, 1}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
+		[1] = { grid = {1, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[2] = { grid = {2, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[3] = { grid = {3, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
 		[4] = { grid = {4, 1}, move_to_grid = {}, chk_aoi = {} },
-		[5] = { grid = {1, 2}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
-		[6] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
-		[7] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
-		[8] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
-		[9] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {{11, add_avatar}} },
-		[10] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{11, mov_avatar}} },
+		[5] = { grid = {1, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[6] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[9] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[10] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
 		[11] = { grid = {3, 3}, move_to_grid = {2, 2}, chk_aoi = {} },
-		[12] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[12] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
 		[13] = { grid = {1, 4}, move_to_grid = {}, chk_aoi = {} },
-		[14] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
-		[15] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
-		[16] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{11, del_avatar}} },
+		[14] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[15] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[16] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
 	})
 
-if false then
 	--[[
 	right top
-	[5-1(2)] [6-1(4)] 
-	[5-2(1)] [6-2(3)]
+	[3-1(01)] [4-1(02)] [5-1(03)] [6-1(04)] 
+	[3-2(05)] [4-2(06)] [5-2(07)] [6-2(08)] 
+	[3-3(09)] [4-3(10)] [5-3(11)] [6-3(12)] 
+	[3-4(13)] [4-4(14)] [5-4(15)] [6-4(16)]
+	avatar(10) move to [5-2] from [4-3]
 	--]]
+	mov_avatar_id = 10
 	test_aoi(width, height, {
-		[1] = { grid = {5, 2}, add_aoi_before = {},        add_aoi_after = {2, 3, 4}, del_aoi = {4, 3, 2} },
-		[2] = { grid = {5, 1}, add_aoi_before = {1},       add_aoi_after = {3, 4},    del_aoi = {4, 3} },
-		[3] = { grid = {6, 2}, add_aoi_before = {1, 2},    add_aoi_after = {4},       del_aoi = {4} },
-		[4] = { grid = {6, 1}, add_aoi_before = {1, 2, 3}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {3, 1}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {4, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[3] = { grid = {5, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[4] = { grid = {6, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[5] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[6] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {5, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {6, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[9] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[10] = { grid = {4, 3}, move_to_grid = {5, 2}, chk_aoi = {} },
+		[11] = { grid = {5, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {6, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[13] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[14] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[15] = { grid = {5, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[16] = { grid = {6, 4}, move_to_grid = {}, chk_aoi = {} },
 	})
 
 	--[[
 	left bottom
-	[1-5(1)] [2-5(2)]
-	[1-6(4)] [2-6(3)]
+	[1-3(01)] [2-3(02)] [3-3(03)] [4-3(04)]  
+	[1-4(05)] [2-4(06)] [3-4(07)] [4-4(08)]  
+	[1-5(09)] [2-5(10)] [3-5(11)] [4-5(12)]  
+	[1-6(13)] [2-6(14)] [3-6(15)] [4-6(16)]
+	avatar(07) move to [2-5] from [3-4]
 	--]]
+	mov_avatar_id = 7
 	test_aoi(width, height, {
-		[1] = { grid = {1, 5}, add_aoi_before = {},        add_aoi_after = {2, 3, 4}, del_aoi = {4, 3, 2} },
-		[2] = { grid = {2, 5}, add_aoi_before = {1},       add_aoi_after = {3, 4},    del_aoi = {4, 3} },
-		[3] = { grid = {2, 6}, add_aoi_before = {1, 2},    add_aoi_after = {4},       del_aoi = {4} },
-		[4] = { grid = {1, 6}, add_aoi_before = {1, 2, 3}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[3] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[4] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[5] = { grid = {1, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[6] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {3, 4}, move_to_grid = {2, 5}, chk_aoi = {} },
+		[8] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[9] = { grid = {1, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[10] = { grid = {2, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[13] = { grid = {1, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[14] = { grid = {2, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[15] = { grid = {3, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[16] = { grid = {4, 6}, move_to_grid = {}, chk_aoi = {} },
 	})
+
 
 	--[[
 	right bottom
-	[5-5] [6-5] 
-	[5-6] [6-6]
+	[3-3(01)] [4-3(02)] [5-3(03)] [6-3(04)] 
+	[3-4(05)] [4-4(06)] [5-4(07)] [6-4(08)] 
+	[3-5(09)] [4-5(10)] [5-5(11)] [6-5(12)] 
+	[3-6(13)] [4-6(14)] [5-6(15)] [6-6(16)] 
+	avatar(06) move to [5-5] from [4-4]
 	--]]
+	mov_avatar_id = 7
 	test_aoi(width, height, {
-		[1] = { grid = {1, 5}, add_aoi_before = {},        add_aoi_after = {2, 3, 4}, del_aoi = {4, 3, 2} },
-		[2] = { grid = {2, 5}, add_aoi_before = {1},       add_aoi_after = {3, 4},    del_aoi = {4, 3} },
-		[3] = { grid = {2, 6}, add_aoi_before = {1, 2},    add_aoi_after = {4},       del_aoi = {4} },
-		[4] = { grid = {1, 6}, add_aoi_before = {1, 2, 3}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[3] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[4] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[5] = { grid = {1, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[6] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {3, 4}, move_to_grid = {2, 5}, chk_aoi = {} },
+		[8] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[9] = { grid = {1, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[10] = { grid = {2, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[13] = { grid = {1, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[14] = { grid = {2, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[15] = { grid = {3, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[16] = { grid = {4, 6}, move_to_grid = {}, chk_aoi = {} },
 	})
 
 	-- test case 2 border
 
 	--[[
 	left
-	[1-2(5)] [2-2(4)]
-	[1-3(6)] [2-3(3)]
-	[1-4(1)] [2-4(2)]
+	[1-2(01)] [2-2(02)] [3-2(03)] [4-2(04)]
+	[1-3(05)] [2-3(06)] [3-3(07)] [4-3(08)]
+	[1-4(09)] [2-4(10)] [3-4(11)] [4-4(12)]
+	[1-5(13)] [2-5(14)] [3-5(15)] [4-5(16)]
+	avatar(11) move to [2-4] from [3-4]
 	--]]
+	mov_avatar_id = 11
 	test_aoi(width, height, {
-		[1] = { grid = {1, 4}, add_aoi_before = {},              add_aoi_after = {2, 3, 6}, del_aoi = {6, 3, 2} },
-		[2] = { grid = {2, 4}, add_aoi_before = {1},             add_aoi_after = {3, 6},    del_aoi = {6, 3} },
-		[3] = { grid = {2, 3}, add_aoi_before = {1, 2},          add_aoi_after = {4, 5, 6}, del_aoi = {6, 5, 4} },
-		[4] = { grid = {2, 2}, add_aoi_before = {3},             add_aoi_after = {5, 6},    del_aoi = {6, 5} },
-		[5] = { grid = {1, 2}, add_aoi_before = {3, 4},          add_aoi_after = {6},       del_aoi = {6} },
-		[6] = { grid = {1, 3}, add_aoi_before = {1, 2, 3, 4, 5}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {1, 2}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {} },
+		[3] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {} },
+		[4] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {} },
+		[5] = { grid = {1, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[6] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[9] = { grid = {1, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[10] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {3, 4}, move_to_grid = {2, 4}, chk_aoi = {} },
+		[12] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[13] = { grid = {1, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[14] = { grid = {2, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[15] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[16] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
 	})
 
 	-- top
 	--[[
-	[3-1(4)] [4-1(6)] [5-1(1)]
-	[3-2(5)] [4-2(3)] [5-2(2)]
+	[2-1(01)] [3-1(02)] [4-1(03)] [5-1(04)]
+	[2-2(05)] [3-2(06)] [4-2(07)] [5-2(08)]
+	[2-3(09)] [3-3(10)] [4-3(11)] [5-3(12)]
+	[2-4(13)] [3-4(14)] [4-4(15)] [5-4(16)]
+	avatar(11) move to [4-2] from [4-3]
 	--]]
+	mov_avatar_id = 11
 	test_aoi(width, height, {
-		[1] = { grid = {5, 1}, add_aoi_before = {},              add_aoi_after = {2, 3, 6}, del_aoi = {6, 3, 2} },
-		[2] = { grid = {5, 2}, add_aoi_before = {1},             add_aoi_after = {3, 6},    del_aoi = {6, 3} },
-		[3] = { grid = {4, 2}, add_aoi_before = {1, 2},          add_aoi_after = {4, 5, 6}, del_aoi = {6, 5, 4} },
-		[4] = { grid = {3, 1}, add_aoi_before = {3},             add_aoi_after = {5, 6},    del_aoi = {6, 5} },
-		[5] = { grid = {3, 2}, add_aoi_before = {3, 4},          add_aoi_after = {6},       del_aoi = {6} },
-		[6] = { grid = {4, 1}, add_aoi_before = {1, 2, 3, 4, 5}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {2, 1}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {3, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[3] = { grid = {4, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[4] = { grid = {5, 1}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[5] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {} },
+		[6] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {5, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[9] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {} },
+		[10] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {4, 3}, move_to_grid = {4, 2}, chk_aoi = {} },
+		[12] = { grid = {5, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[13] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {} },
+		[14] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[15] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[16] = { grid = {5, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
 	})
 
 	-- right
 	--[[
-	[5-3(1)] [6-3(2)] 
-	[5-4(3)] [6-4(6)] 
-	[5-5(4)] [6-5(5)] 
+	[3-2(01)] [4-2(02)] [5-2(03)] [6-2(04)] 
+	[3-3(05)] [4-3(06)] [5-3(07)] [6-3(08)] 
+	[3-4(09)] [4-4(10)] [5-4(11)] [6-4(12)] 
+	[3-5(13)] [4-5(14)] [5-5(15)] [6-5(16)] 
+	avatar(10) move to [5-4] from [4-4]
 	--]]
+	mov_avatar_id = 10
 	test_aoi(width, height, {
-		[1] = { grid = {5, 3}, add_aoi_before = {},              add_aoi_after = {2, 3, 6}, del_aoi = {6, 3, 2} },
-		[2] = { grid = {6, 3}, add_aoi_before = {1},             add_aoi_after = {3, 6},    del_aoi = {6, 3} },
-		[3] = { grid = {5, 4}, add_aoi_before = {1, 2},          add_aoi_after = {4, 5, 6}, del_aoi = {6, 5, 4} },
-		[4] = { grid = {5, 5}, add_aoi_before = {3},             add_aoi_after = {5, 6},    del_aoi = {6, 5} },
-		[5] = { grid = {6, 5}, add_aoi_before = {3, 4},          add_aoi_after = {6},       del_aoi = {6} },
-		[6] = { grid = {6, 4}, add_aoi_before = {1, 2, 3, 4, 5}, add_aoi_after = {},        del_aoi = {} },
+		[1] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {} },
+		[2] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {} },
+		[3] = { grid = {5, 2}, move_to_grid = {}, chk_aoi = {} },
+		[4] = { grid = {6, 2}, move_to_grid = {}, chk_aoi = {} },
+		[5] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[6] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[7] = { grid = {5, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {6, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[9] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[10] = { grid = {4, 4}, move_to_grid = {5, 4}, chk_aoi = {} },
+		[11] = { grid = {5, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {6, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[13] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[14] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[15] = { grid = {5, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[16] = { grid = {6, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
 	})
 
 	-- bottom
 	--[[
-	[2-5(1)] [3-5(2)] [4-5(3)] 
-	[2-6(4)] [3-6(6)] [4-6(5)]
+	[2-3(01)] [3-3(02)] [4-3(03)] [5-3(04)]
+	[2-4(05)] [3-4(06)] [4-4(07)] [5-4(08)]
+	[2-5(09)] [3-5(10)] [4-5(11)] [5-5(12)]
+	[2-6(13)] [3-6(14)] [4-6(15)] [5-6(16)]
+	avatar(6) move to [3-5] from [3-4]
 	--]]
+	mov_avatar_id = 6
 	test_aoi(width, height, {
-		[1] = { grid = {2, 5}, add_aoi_before = {},              add_aoi_after = {2, 4, 6},    del_aoi = {6, 4, 2} },
-		[2] = { grid = {3, 5}, add_aoi_before = {1},             add_aoi_after = {3, 4, 5, 6}, del_aoi = {6, 5, 4, 3} },
-		[3] = { grid = {4, 5}, add_aoi_before = {2},             add_aoi_after = {5, 6},       del_aoi = {6, 5} },
-		[4] = { grid = {2, 6}, add_aoi_before = {1, 2},          add_aoi_after = {6},          del_aoi = {6} },
-		[5] = { grid = {4, 6}, add_aoi_before = {2, 3},          add_aoi_after = {6},          del_aoi = {6} },
-		[6] = { grid = {3, 6}, add_aoi_before = {1, 2, 3, 4, 5}, add_aoi_after = {},           del_aoi = {} },
+		[1] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[2] = { grid = {3, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[3] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[4] = { grid = {5, 3}, move_to_grid = {}, chk_aoi = {} },
+		[5] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[6] = { grid = {3, 4}, move_to_grid = {3, 5}, chk_aoi = {} },
+		[7] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {5, 4}, move_to_grid = {}, chk_aoi = {} },
+		[9] = { grid = {2, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[10] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {5, 5}, move_to_grid = {}, chk_aoi = {} },
+		[13] = { grid = {2, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[14] = { grid = {3, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[15] = { grid = {4, 6}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[16] = { grid = {5, 6}, move_to_grid = {}, chk_aoi = {} },
 	})
 
 	-- test case 3 middle
 	--[[
-	[2-2(2)] [3-2(3)] [4-2(4)]
-	[2-3(5)] [3-3(9)] [4-3(6)]
-	[2-4(7)] [3-4(8)] [4-4(1)]
+	[2-2(01)] [3-2(02)] [4-2(03)] [5-2(04)]
+	[2-3(05)] [3-3(06)] [4-3(07)] [5-3(08)]
+	[2-4(09)] [3-4(10)] [4-4(11)] [5-4(12)]
+	[2-5(13)] [3-5(14)] [4-5(15)] [5-5(16)]
+	avatar(6) move to [4-4] from [3-3]
 	--]]
+	mov_avatar_id = 6
 	test_aoi(width, height, {
-		[1] = { grid = {4, 4}, add_aoi_before = {},                       add_aoi_after = {6, 8, 9}, del_aoi = {9, 8, 6} },
-		[2] = { grid = {2, 2}, add_aoi_before = {},                       add_aoi_after = {3, 5, 9}, del_aoi = {9, 5, 3} },
-		[3] = { grid = {3, 2}, add_aoi_before = {2},                      add_aoi_after = {4, 5, 6, 9}, del_aoi = {9, 6, 5, 4} },
-		[4] = { grid = {4, 2}, add_aoi_before = {3},                      add_aoi_after = {6, 9}, del_aoi = {9, 6} },
-		[5] = { grid = {2, 3}, add_aoi_before = {2, 3},                   add_aoi_after = {7, 8, 9}, del_aoi = {9, 8, 7} },
-		[6] = { grid = {4, 3}, add_aoi_before = {1, 3, 4},                add_aoi_after = {8, 9}, del_aoi = {9, 8} },
-		[7] = { grid = {2, 4}, add_aoi_before = {5},                      add_aoi_after = {8, 9}, del_aoi = {9, 8} },
-		[8] = { grid = {3, 4}, add_aoi_before = {1, 5, 6, 7},             add_aoi_after = {9}, del_aoi = {9} },
-		[9] = { grid = {3, 3}, add_aoi_before = {1, 2, 3, 4, 5, 6, 7, 8}, add_aoi_after = {}, del_aoi = {} },
+		[1] = { grid = {2, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[2] = { grid = {3, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[3] = { grid = {4, 2}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[4] = { grid = {5, 2}, move_to_grid = {}, chk_aoi = {} },
+		[5] = { grid = {2, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[6] = { grid = {3, 3}, move_to_grid = {4, 4}, chk_aoi = {} },
+		[7] = { grid = {4, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[8] = { grid = {5, 3}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[9] = { grid = {2, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, del_avatar}} },
+		[10] = { grid = {3, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[11] = { grid = {4, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, mov_avatar}} },
+		[12] = { grid = {5, 4}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[13] = { grid = {2, 5}, move_to_grid = {}, chk_aoi = {} },
+		[14] = { grid = {3, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[15] = { grid = {4, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
+		[16] = { grid = {5, 5}, move_to_grid = {}, chk_aoi = {{mov_avatar_id, add_avatar}} },
 	})
-
-end
 
 end
 
