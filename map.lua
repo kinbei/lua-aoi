@@ -151,7 +151,7 @@ local function mov_avatar(self, avatar, source_x, source_y, dest_x, dest_y)
 	local dest_grid = assert( get_map_grid(self, dest_x, dest_y) )
 
 	-- The source grid and dest grid must be adjacent to each other
-	assert( (math.abs(source_grid.x - dest_grid.x) <= 1) or (math.abs(source_grid.y - dest_grid.y) <= 1) )
+	assert( (math.abs(source_grid.x - dest_grid.x) <= 1) and (math.abs(source_grid.y - dest_grid.y) <= 1) )
 	
 	if source_grid ~= dest_grid then
 		source_grid:del_avatar(avatar)
